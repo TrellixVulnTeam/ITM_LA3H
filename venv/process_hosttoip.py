@@ -25,6 +25,7 @@ def main():
     clean_db();
     with open(FILE, 'r', encoding="utf-8") as f:
         for line in f:
+            line = line.strip("\n")
             record = line.split("&&");
             if len(record) == 2:
                 hostname = record[0];
