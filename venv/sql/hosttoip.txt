@@ -1,0 +1,5 @@
+CREATE TABLE HOSTTOIP (
+    HOSTNAME   TEXT PRIMARY KEY
+                    NOT NULL,
+    IP_ADDRESS TEXT
+);
