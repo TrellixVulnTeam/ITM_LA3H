@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 
+import sqlite3
 
 FILE = "src/ITM_HostToApp.lookup"
 DB_FILE = "ump_std.db"
