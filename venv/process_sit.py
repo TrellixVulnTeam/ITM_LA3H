@@ -47,9 +47,14 @@ def import_data(sql):
 
 #解析xml文件，并执行导入
 def proc_sit(xmlfile,agent):
+
+    conn = sqlite3.connect(DB_FILE);
+    c = conn.cursor();
+
     threshold = 'null'
     period = 'null'
     isstd_sit = 'null'
+    severity = 'null'
 
     #解析xml文件，获取第一个ROW标签下的值
     tree = et.parse(xmlfile);
@@ -73,8 +78,24 @@ def proc_sit(xmlfile,agent):
                 period = tmpDesc[1]
                 isstd_sit = tmpDesc[2]
 
+        #级别处理。SITINFO 字段举例 ：  COUNT=3;ATOM=K01SERVER.SERVERNAME;TFWD=Y;SEV=Minor;TDST=0;~;
+        if str(slotName) == "SITINFO":
+            tmpInfo = str(slotValue)
+            tmpSeverity = re.findall(r"SEV=(.*);TDST",tmpInfo)
+            if len(tmpSeverity) == 0:
+                severity = 'NA'
+            elif tmpSeverity[0] == 'Critical':
+                severity = '1'
+            elif tmpSeverity[0] == 'Minor':
+                severity = '2'
+            elif tmpSeverity[0] == 'Warning':
+                severity = '3'
+            else:
+                severity = '4'
+
+
     tempJson = json.dumps(tempDict, ensure_ascii=False);
-    sql = sql_tmp + "'" + threshold + "','" + period + "','" + isstd_sit + "');"
+    sql = sql_tmp + "'" + threshold + "','" + period + "','" + isstd_sit + "','" + severity +  "');"
     print(sql)
     import_data(sql);
     return sql;

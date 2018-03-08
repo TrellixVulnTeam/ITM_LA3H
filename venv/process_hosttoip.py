@@ -20,6 +20,7 @@ logger.addHandler(handler)
 
 FILE = "src/HostToIP"
 DB_FILE = "ump_std.db"
+TABLE_NAME = "hosttoip"
 
 def main():
     clean_db();
@@ -38,9 +39,10 @@ def main():
 def clean_db():
     conn = sqlite3.connect(DB_FILE);
     c = conn.cursor();
-    c.execute("delete from hosttoip");
+    sql = "delete from " + TABLE_NAME
+    c.execute(sql);
     conn.commit();
-    print("table hosttoip has been cleaned!");
+    print("Table %s has been cleaned!" % TABLE_NAME);
 
 def import_data(hostname,ipaddress):
     conn = sqlite3.connect(DB_FILE);
