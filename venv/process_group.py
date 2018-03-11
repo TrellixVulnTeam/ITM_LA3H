@@ -1,37 +1,55 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 
-import sys
 import sqlite3
+import logging
 
 #文件示例： NT_TCP_STATUS_HT&&Primary:BL685762:NT Primary:BL685765:NT Primary:HP-BL685-019:NT Primary:HP-BL685-054:NT
 DB_FILE = "ump_std.db"
 filename = 'src/groupTohost.txt'
-groupname = ''
-lines_tmp = []
-agent_all = []
-hostname = []
+TABLE_NAME = "grouptoagent"
+LOG_FILE = "logs/process_group.log"
+global counter
+counter = 0
+
+#设置log
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+# create a file handler
+handler = logging.FileHandler(LOG_FILE)
+handler.setLevel(logging.INFO)
+# create a logging format
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+# add the handlers to the logger
+logger.addHandler(handler)
 
 def main():
+    logger.info('开始导入group to host 数据！')
     clean_db()
     process_group()
+    logger.info('正常导入%s条记录完成。', counter)
 
 def clean_db():
     conn = sqlite3.connect(DB_FILE);
     c = conn.cursor();
-    c.execute("delete from grouptoagent");
+    sql = "delete from " + TABLE_NAME
+    c.execute(sql);
     conn.commit();
-    print("table grouptoagent has been cleaned!");
+    print("Table %s has been cleaned!" % TABLE_NAME);
+    logger.info('表%s已被清空！',TABLE_NAME)
 
 def import_data(groupname,agentname,host,agent_length):
+    global counter
     conn = sqlite3.connect(DB_FILE);
     c = conn.cursor();
-    c.execute("insert into grouptoagent (GROUPNAME,AGENTNAME,HOSTNAME,AGENT_LENGTH) values (?,?,?,?)", (groupname,agentname,host,agent_length));
-    #print('insert data success');
+    c.execute("insert into grouptoagent (GROUPNAME,AGENT_NAME,HOSTNAME,AGENT_LENGTH) values (?,?,?,?)", (groupname,agentname,host,agent_length));
+    print('insert data success');
     conn.commit();
+    counter += 1
 
 def process_group():
-    with open(filename, 'r') as file_to_read:
+    with open(filename, 'r',encoding='UTF-8') as file_to_read:
         for lines in file_to_read.readlines():
             #print(lines,end='')
             lines_tmp =  lines.split('&&')

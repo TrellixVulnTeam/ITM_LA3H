@@ -1,15 +1,33 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 
-import sys
 import sqlite3
 import re
+import logging
 
 DB_FILE = "ump_std.db"
+TABLE_NAME = "itm_policy"
+LOG_FILE = "logs/process_all.log"
+global counter
+counter = 0
+
+#设置log
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+# create a file handler
+handler = logging.FileHandler(LOG_FILE)
+handler.setLevel(logging.INFO)
+# create a logging format
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+# add the handlers to the logger
+logger.addHandler(handler)
 
 def main():
+    logger.info('开始处理ITM档案信息分析和入库！')
     clean_db()
     query_sit()
+    logger.info("处理完成！共导入%s条档案信息",counter)
 
 def isIP(str): #判断字符串是否IP地址格式
     p = re.compile('^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$')
@@ -18,12 +36,14 @@ def isIP(str): #判断字符串是否IP地址格式
     else:
         return False
 
-def clean_db(): #清除数据库
+def clean_db():
     conn = sqlite3.connect(DB_FILE);
     c = conn.cursor();
-    #c.execute("delete from ");
-    #conn.commit();
-    print("table  has been cleaned!");
+    sql = "delete from " + TABLE_NAME
+    c.execute(sql);
+    conn.commit();
+    print("Table %s has been cleaned!" % TABLE_NAME);
+    logger.info('表%s已被清空！',TABLE_NAME)
 
 def query_sit():
     f = open("rs.txt", 'w', encoding="utf8");
@@ -136,10 +156,12 @@ def query_sit():
     f.close()
 
 def import_data(conn,sitname,host,ip_address,appname,sit_desc,n_componenttype,n_component,n_subcomponent,severity):
+    global counter
     sqlStr = "insert into itm_policy  (APP_NAME,IP_ADDRESS,HOSTNAME,SIT_NAME,SIT_DESC,COMPONENT_TYPE,COMPONENT,SUB_COMPONENT,SEVERITY)" \
              "values (?,?,?,?,?,?,?,?,?) "
     conn.execute(sqlStr,(appname,ip_address,host,sitname,sit_desc,n_componenttype,n_component,n_subcomponent,severity))
     conn.commit()
+    counter += 1
 
 def hosttoip(hostname):
     ip_address = ()
