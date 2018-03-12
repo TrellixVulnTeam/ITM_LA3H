@@ -95,17 +95,22 @@ def process_agent():
                 agent_type = agent_all[1]
                 hostname = agent_host
 
-                if agent_type == 'UAGENT00':
+                if agent_type == 'UAGENT00':  #处理UA相关代理
                     if len(re.findall(r"(.*)ASFSdp", agent_host)) > 0:
                         hostname = re.findall(r"(.*)ASFSdp", agent_host)[0]
                     elif len(re.findall(r"(.*)SNMPdp", agent_host)) > 0:
                         hostname = re.findall(r"(.*)SNMPdp", agent_host)[0]
-                if len(re.findall(r"^N[0-9][0-9]|^P[0-9][0-9]|^R[0-9][0-9]|UAGENT00",agent_type)) > 0:
-                    if len(hostname.split("_")) > 1:
-                        try:
+
+                if len(re.findall(r"^N[0-9][0-9]|^P[0-9][0-9]|^R[0-9][0-9]|UAGENT00",agent_type)) > 0: #处理小用户启动的UA实例
+                    try:
+                        ip_address = host_dict[agent_host]
+                    except:
+                        if len(hostname.split("_")) > 1:
+                            #try:
                             hostname = hostname.split("_")[1]
-                        except:
-                            print(hostname.split("_"))
+                            #except:
+                            #print(hostname.split("_"))
+
                 if isIP(hostname):
                     ip_address = hostname
                     hostname = ''
