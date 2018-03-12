@@ -53,6 +53,7 @@ def isIP(str): #判断字符串是否IP地址格式
         return True
     else:
         return False
+
 #清空数据库
 def clean_db():
     conn = sqlite3.connect(DB_FILE);
