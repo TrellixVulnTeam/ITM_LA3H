@@ -126,13 +126,17 @@ def query_sit():
                 pass
 
             elif group_flag == -1 : #situation下发到组的情况
+
                 for group in dist:
                     # try:
                     #     agent_list = group_to_agent_dict[group]
                     # except:
                     #     print(group)
-                    agent_list = group_to_agent_dict[group]
-                    for agent in range(len(agent_list)) :
+                    try:
+                        agent_list = group_to_agent_dict[group]
+                    except:
+                        print(group)
+                    for agent in agent_list :
                         try:
                             host = agent_to_host_dict[agent]  # 找到主机名
                         except:
@@ -163,7 +167,7 @@ def import_data(conn,sitname,host,ip_address,agent,appname,sit_desc,n_componentt
 def iptoapp(ip_address):
     appname = ()
     conn = sqlite3.connect(DB_FILE);
-    sqlStr = "select APP_NAME from iptoapp where IP_ADDRESS = '" + ip_address[0] + "'"
+    sqlStr = "select APP_NAME from iptoapp where IP_ADDRESS = '" + ip_address + "'"
     c = conn.execute(sqlStr);
     rows_app = c.fetchall()
     if len(rows_app) > 0 : #如果找到了APP，则赋值
