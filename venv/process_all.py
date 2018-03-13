@@ -8,8 +8,16 @@ import logging
 DB_FILE = "ump_std.db"
 TABLE_NAME = "itm_policy"
 LOG_FILE = "logs/process_all.log"
+
 global counter
 counter = 0
+global agent_to_ip_dict
+agent_to_ip_dict = {}
+global agent_to_host_dict
+agent_to_host_dict = {}
+global group_to_agent_dict
+group_to_agent_dict = {}
+
 
 #设置log
 logger = logging.getLogger(__name__)
@@ -46,6 +54,10 @@ def clean_db():
     logger.info('表%s已被清空！',TABLE_NAME)
 
 def query_sit():
+    group_to_agent_dict()
+    agent_to_ip_dict()
+    group_to_agent_dict
+
     f = open("rs.txt", 'w', encoding="utf8");
     f.write("开始写文件\n")
     f.close()
@@ -59,8 +71,8 @@ def query_sit():
 
             #根据situation名字进行丰富
             sitname = str(rows_sit[i][0])
-            sqlStr = "select SIT_DESC,N_ComponentType,N_Component,N_SubComponent from itm_sit_enrich " \
-                     "where SITNAME = \'" + sitname + "\'"
+            sqlStr = "select SIT_DESC,N_ComponentType,N_Component,N_SubComponent from itm_sit_enrich where SITNAME = \'{0}\'".format(
+                sitname)
             c = conn.execute(sqlStr)
             rows_enrich = c.fetchall()
             if len(rows_enrich) == 0:
@@ -94,89 +106,59 @@ def query_sit():
             #根据下发的组或者agent列表进行处理
             dist = str(rows_sit[i][1]).split(',')
             group_flag = str(rows_sit[i][1]).find(':')  #根据冒号判断是发到组还是Agent。 如果未找到，则值为-1
-            if len(dist) > 1 and group_flag != -1 : #situation直接下发到Agent的情况
+            if  group_flag != -1 : #situation直接下发到Agent的情况
                 for agent in dist:
-                    agent = agent.split(':')
-                    if len(agent) == 2:
-                        host = agent[0]
-                    elif len(agent) == 3:
-                        if agent[2] == '01':  # 处理JMX 01类型 ,示例 10.1.88.81_ORM:UMP-JMX2:01
-                            # host_tmp = []
-                            agent_tmp = agent[0].split('_')
-                            host = agent_tmp[0]
-                        elif agent[2] == 'RDB':  # 处理 RDB代理 ，示例 RZ:OIBS1-OIBS1-BL660216:RDB
-                            # host_tmp = []
-                            agent_tmp = agent[1].split('-', 2)  # 存在多个- 的情况，如RZ:REPDB-REPDB-ALM-DB-P01:RDB
-                            host = agent_tmp[2]
-                        else:
-                            host = agent[1]
-                    ip_address = hosttoip(host)
+                    try:
+                        ip_address = agent_to_ip_dict[agent]
+                    except:
+                        ip_address = ''
+
+                    try:
+                        host = agent_to_host_dict[agent]
+                    except:
+                        host = ''
+
                     appname = iptoapp(ip_address)
-                    content = str(sitname) + ":" + host + ":" + ip_address[0] + ":" + appname[0] + ":" + sit_desc + ":" + n_componenttype + ":" + n_component + ":" + n_subcomponent +  ":" + severity + "\n"
+                    content = str(sitname) + ":" + host + ":" + ip_address + ":" + appname[0] + ":" + sit_desc + ":" + n_componenttype + ":" + n_component + ":" + n_subcomponent +  ":" + severity + "\n"
                     f.write(content)
-                    import_data(conn,sitname,host,ip_address[0],appname[0],sit_desc,n_componenttype,n_component,n_subcomponent,severity)
+                    import_data(conn,sitname,host,ip_address,agent,appname[0],sit_desc,n_componenttype,n_component,n_subcomponent,severity)
 
                 pass
 
-            elif len(dist) > 1 and group_flag == -1 : #situation下发到多个组的情况
+            elif group_flag == -1 : #situation下发到组的情况
                 for group in dist:
-                    sqlStr = "select HOSTNAME from grouptoagent where GROUPNAME = \'" + group + "'"
-                    c = conn.execute(sqlStr); #根据组名称，查找主机名
-                    rows_group = c.fetchall()
-                    for j in range(len(rows_group)) :
-                        agent = rows_group[j] #找到主机名
-                        host = agent[0]
-                        ip_address = hosttoip(host)
-                        appname = iptoapp(ip_address)
-                        #根据IP地址，查找应用系统信息
+                    # try:
+                    #     agent_list = group_to_agent_dict[group]
+                    # except:
+                    #     print(group)
+                    agent_list = group_to_agent_dict[group]
+                    for agent in range(len(agent_list)) :
+                        try:
+                            host = agent_to_host_dict[agent]  # 找到主机名
+                        except:
+                            host = ''
+                        try:
+                            ip_address = agent_to_ip_dict[agent]  # 找到IP
+                        except:
+                            ip_address = ''
+                        appname = iptoapp(ip_address)  # 根据IP地址，查找应用系统信息
 
                         #print(str(sitname) + ":"+ agent[0] + ":" + ip_address[0] + ":" + sit_desc + ":" + n_componenttype + ":" + n_component + ":" + n_subcomponent)
-                        content = str(sitname) + ":"+ host + ":" + ip_address[0] + ":" + appname[0] + ":" + sit_desc + ":" + n_componenttype + ":" + n_component + ":" + n_subcomponent +  ":" + severity +  "\n"
+                        content = str(sitname) + ":"+ host + ":" + ip_address + ":" + appname[0] + ":" + sit_desc + ":" + n_componenttype + ":" + n_component + ":" + n_subcomponent +  ":" + severity +  "\n"
                         f.write(content)
-                        import_data(conn,sitname, host, ip_address[0], appname[0], sit_desc, n_componenttype, n_component,n_subcomponent,severity)
+                        import_data(conn,sitname, host, ip_address, agent, appname[0], sit_desc, n_componenttype, n_component,n_subcomponent,severity)
                         pass
 
-            elif len(dist) == 1 or group_flag == -1 : #situation下发到单个组的情况
-                #print(dist)
-                sqlStr = "select HOSTNAME from grouptoagent where GROUPNAME = ?"
-                c = conn.execute(sqlStr,dist); #根据组名称，查找主机名
-                rows_group = c.fetchall()
-                for j in range(len(rows_group)) :
-                    agent = rows_group[j] #找到主机名
-                    host = agent[0]
-                    ip_address = hosttoip(host)
-                    appname = iptoapp(ip_address)
-
-                    #print(str(sitname) + ":"+ agent[0] + ":" + ip_address[0] + ":" + sit_desc + ":" + n_componenttype + ":" + n_component + ":" + n_subcomponent)
-                    content = str(sitname) + ":" + host + ":" + ip_address[0] + ":" + appname[0] + ":" + sit_desc + ":" + n_componenttype + ":" + n_component + ":" + n_subcomponent + ":" + severity + "\n"
-                    f.write(content)
-                    import_data(conn,sitname, host, ip_address[0], appname[0], sit_desc, n_componenttype, n_component,n_subcomponent,severity)
-                    pass
     conn.close()
     f.close()
 
-def import_data(conn,sitname,host,ip_address,appname,sit_desc,n_componenttype,n_component,n_subcomponent,severity):
+def import_data(conn,sitname,host,ip_address,agent,appname,sit_desc,n_componenttype,n_component,n_subcomponent,severity):
     global counter
-    sqlStr = "insert into itm_policy  (APP_NAME,IP_ADDRESS,HOSTNAME,SIT_NAME,SIT_DESC,COMPONENT_TYPE,COMPONENT,SUB_COMPONENT,SEVERITY)" \
-             "values (?,?,?,?,?,?,?,?,?) "
-    conn.execute(sqlStr,(appname,ip_address,host,sitname,sit_desc,n_componenttype,n_component,n_subcomponent,severity))
+    sqlStr = "insert into itm_policy  (APP_NAME,IP_ADDRESS,AGENT_NAME,HOSTNAME,SIT_NAME,SIT_DESC,COMPONENT_TYPE,COMPONENT,SUB_COMPONENT,SEVERITY)" \
+             "values (?,?,?,?,?,?,?,?,?,?) "
+    conn.execute(sqlStr,(appname,ip_address,agent,host,sitname,sit_desc,n_componenttype,n_component,n_subcomponent,severity))
     conn.commit()
     counter += 1
-
-def hosttoip(hostname):
-    ip_address = ()
-    conn = sqlite3.connect(DB_FILE);
-    if isIP(hostname):  # 如果是IP地址格式的，则直接赋值给ip_address字段
-        ip_address = (hostname,)
-    else:  # 如果不是IP地址格式，则要继续查询
-        sqlStr = "select IP_ADDRESS from hosttoip where HOSTNAME = '" + hostname + "'"
-        c = conn.execute(sqlStr)  # 根据主机名，查找IP地址
-        rows_host = c.fetchall()
-        if len(rows_host) > 0:  # 如果找到了IP，则赋值
-            ip_address = rows_host[0]
-        elif len(rows_host) == 0:  # 如果没找到，则赋默认值
-            ip_address = ('NA',)
-    return(ip_address)
 
 def iptoapp(ip_address):
     appname = ()
@@ -189,6 +171,40 @@ def iptoapp(ip_address):
     elif len(rows_app) == 0: #如果没找到，则赋默认值
         appname = ('NA',)
     return(appname)
+
+
+def agent_to_ip_dict():
+    global agent_to_ip_dict
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor();
+    c.execute("select AGENT_NAME,IP_ADDRESS from itm_agent_list where IP_ADDRESS != ''");
+    rows = c.fetchall()
+    agent_to_ip_dict = {}
+    for row in rows:
+        agent_to_ip_dict[row[0]] = row[1]
+    conn.close()
+
+def agent_to_host_dict():
+    global agent_to_host_dict
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor();
+    c.execute("select AGENT_NAME,HOSTNAME from itm_agent_list where HOSTNAME != ''");
+    rows = c.fetchall()
+    agent_to_host_dict = {}
+    for row in rows:
+        agent_to_host_dict[row[0]] = row[1]
+    conn.close()
+
+def group_to_agent_dict():
+    global group_to_agent_dict
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor();
+    c.execute("select GROUPNAME,AGENT_NAME from grouptoagent");
+    rows = c.fetchall()
+    group_to_agent_dict = {}
+    for row in rows:
+        group_to_agent_dict[row[0]] = row[1]
+    conn.close()
 
 if __name__ == '__main__':
         main()
